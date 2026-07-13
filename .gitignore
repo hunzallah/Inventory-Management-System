@@ -1,0 +1,16 @@
+node_modules/
+build/
+dist/
+.env
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# React
+coverage/
+
+# Electron
+out/
