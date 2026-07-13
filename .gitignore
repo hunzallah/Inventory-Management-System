@@ -2,20 +2,23 @@ node_modules/
 build/
 dist/
 .env
-*.log
+.log
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
+Database files
+.db
+.sqlite
+.sqlite3
+.db-shm
+.db-wal
+.db-journal
 
-# SQLite temporary files
-*.db-shm
-*.db-wal
-*.db-journal
-# React
+SQLite temporary files
+.db-shm
+.db-wal
+.db-journal
+ React
 
 coverage/
 
-# Electron
+Electron
 out/
