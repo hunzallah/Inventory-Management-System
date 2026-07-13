@@ -9,7 +9,12 @@ dist/
 *.sqlite
 *.sqlite3
 
+# SQLite temporary files
+*.db-shm
+*.db-wal
+*.db-journal
 # React
+
 coverage/
 
 # Electron
