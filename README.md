@@ -3,6 +3,7 @@
 A lightweight desktop inventory management system built with Electron, React, Tailwind CSS, Express, and SQLite.
 
 ---
+<img width="1918" height="1015" alt="image" src="https://github.com/user-attachments/assets/f26d69c6-78a4-4c4e-ba7a-30774406171b" />
 
 ## Features
 
