@@ -4,7 +4,7 @@ import {
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon,
   FunnelIcon, PhotoIcon
 } from '@heroicons/react/24/outline';
-import api from '../utils/api';
+import api, { API_ORIGIN } from '../utils/api';
 import { formatCurrency, stockStatus } from '../utils/format';
 import Modal from '../components/common/Modal';
 import Confirm from '../components/common/Confirm';
@@ -137,7 +137,7 @@ export default function Inventory() {
                   <td>
                     <div className="flex items-center gap-3">
                       {p.image_path ? (
-                        <img src={`http://localhost:3001${p.image_path}`} alt={p.name}
+                        <img src={`${API_ORIGIN}${p.image_path}`} alt={p.name}
                           className="w-9 h-9 rounded-lg object-cover border border-gray-200" />
                       ) : (
                         <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">

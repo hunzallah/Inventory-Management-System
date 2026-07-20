@@ -1,4 +1,5 @@
 import React from 'react';
+import { API_ORIGIN } from '../../utils/api';
 import { formatCurrency, formatDateTime } from '../../utils/format';
 
 export default function InvoicePrint({ invoice, settings }) {
@@ -9,7 +10,7 @@ export default function InvoicePrint({ invoice, settings }) {
       {/* Header */}
       <div className="text-center mb-6 border-b border-gray-200 pb-4">
         {settings?.store_logo && (
-          <img src={`http://localhost:3001${settings.store_logo}`} alt="logo"
+          <img src={`${API_ORIGIN}${settings.store_logo}`} alt="logo"
             className="h-16 object-contain mx-auto mb-2" />
         )}
         <h1 className="text-xl font-bold">{settings?.store_name || 'My Store'}</h1>

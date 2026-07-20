@@ -7,13 +7,18 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const isDev = process.env.NODE_ENV !== 'production';
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'database', 'inventory.db');
-const UPLOADS_PATH = process.env.UPLOADS_PATH || path.join(__dirname, '..', 'database', 'uploads');
+// SAFE PATH LOGIC: Always verify if explicitly overridden by main process environment
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '..', 'database', 'inventory.db');
+const UPLOADS_PATH = process.env.UPLOADS_PATH || path.resolve(__dirname, '..', 'database', 'uploads');
 
 // Ensure directories exist
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-fs.mkdirSync(UPLOADS_PATH, { recursive: true });
+const dbDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+if (!fs.existsSync(UPLOADS_PATH)) {
+  fs.mkdirSync(UPLOADS_PATH, { recursive: true });
+}
 
 const db = new Database(DB_PATH);
 
@@ -26,123 +31,98 @@ db.pragma('foreign_keys = ON');
  */
 function initializeDatabase() {
   db.exec(`
-    -- ─────────────────────────────────────────
-    -- SETTINGS
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT
     );
 
-    -- ─────────────────────────────────────────
-    -- CATEGORIES
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS categories (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      name       TEXT    NOT NULL UNIQUE,
-      has_variants INTEGER NOT NULL DEFAULT 0, -- 1 = garments (color+size), 0 = simple
-      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT UNIQUE,
+      has_variants INTEGER DEFAULT 0
     );
 
-    -- ─────────────────────────────────────────
-    -- PRODUCTS
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS products (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      name           TEXT    NOT NULL,
-      sku            TEXT    UNIQUE,
-      category_id    INTEGER NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
-      purchase_price REAL    NOT NULL DEFAULT 0,
-      selling_price  REAL    NOT NULL DEFAULT 0,
-      description    TEXT,
-      image_path     TEXT,
-      -- Simple quantity (used only when category has_variants = 0)
-      quantity       INTEGER NOT NULL DEFAULT 0,
-      low_stock_threshold INTEGER NOT NULL DEFAULT 5,
-      created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
-      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      name                TEXT,
+      sku                 TEXT,
+      category_id         INTEGER,
+      purchase_price      REAL    DEFAULT 0,
+      selling_price       REAL    DEFAULT 0,
+      description         TEXT,
+      image_path          TEXT,
+      quantity            INTEGER DEFAULT 0,
+      low_stock_threshold INTEGER DEFAULT 5,
+      updated_at          TEXT,
+      FOREIGN KEY (category_id) REFERENCES categories(id)
     );
 
-    -- ─────────────────────────────────────────
-    -- PRODUCT COLORS  (garments only)
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS product_colors (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-      color_name TEXT    NOT NULL,
-      UNIQUE(product_id, color_name)
+      product_id INTEGER,
+      color_name TEXT,
+      FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
-    -- ─────────────────────────────────────────
-    -- PRODUCT VARIANTS  (color + size + qty)
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS product_variants (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-      color_id   INTEGER NOT NULL REFERENCES product_colors(id) ON DELETE CASCADE,
-      size       TEXT    NOT NULL,
-      quantity   INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(color_id, size)
+      product_id INTEGER,
+      color_id   INTEGER,
+      size       TEXT,
+      quantity   INTEGER DEFAULT 0,
+      FOREIGN KEY (product_id) REFERENCES products(id),
+      FOREIGN KEY (color_id)   REFERENCES product_colors(id)
     );
 
-    -- ─────────────────────────────────────────
-    -- CUSTOMERS
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS customers (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      name            TEXT NOT NULL,
+      name            TEXT,
       phone           TEXT UNIQUE,
       address         TEXT,
       notes           TEXT,
-      total_purchases INTEGER NOT NULL DEFAULT 0,
-      total_spent     REAL    NOT NULL DEFAULT 0,
-      last_visit      TEXT,
-      created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+      total_purchases INTEGER DEFAULT 0,
+      total_spent     REAL    DEFAULT 0,
+      last_visit      TEXT
     );
 
-    -- ─────────────────────────────────────────
-    -- INVOICES
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS invoices (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      invoice_number TEXT    NOT NULL UNIQUE,
-      customer_id    INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-      customer_name  TEXT,   -- snapshot at time of sale
-      customer_phone TEXT,
-      subtotal       REAL    NOT NULL DEFAULT 0,
-      discount       REAL    NOT NULL DEFAULT 0,
-      total          REAL    NOT NULL DEFAULT 0,
-      notes          TEXT,
-      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_number  TEXT,
+      customer_id     INTEGER,
+      customer_name   TEXT,
+      customer_phone  TEXT,
+      subtotal        REAL DEFAULT 0,
+      discount        REAL DEFAULT 0,
+      total           REAL DEFAULT 0,
+      notes           TEXT,
+      created_at      TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (customer_id) REFERENCES customers(id)
     );
 
-    -- ─────────────────────────────────────────
-    -- INVOICE ITEMS
-    -- ─────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS invoice_items (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      invoice_id  INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
-      product_id  INTEGER REFERENCES products(id) ON DELETE SET NULL,
-      product_name TEXT   NOT NULL, -- snapshot
-      variant_id  INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
-      color_name  TEXT,   -- snapshot
-      size        TEXT,   -- snapshot
-      quantity    INTEGER NOT NULL,
-      unit_price  REAL    NOT NULL,
-      total_price REAL    NOT NULL
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id   INTEGER,
+      product_id   INTEGER,
+      product_name TEXT,
+      variant_id   INTEGER,
+      color_name   TEXT,
+      size         TEXT,
+      quantity     INTEGER,
+      unit_price   REAL DEFAULT 0,
+      total_price  REAL DEFAULT 0,
+      FOREIGN KEY (invoice_id)   REFERENCES invoices(id),
+      FOREIGN KEY (product_id)   REFERENCES products(id),
+      FOREIGN KEY (variant_id)   REFERENCES product_variants(id)
     );
 
-    -- ─────────────────────────────────────────
-    -- INDEXES for performance
-    -- ─────────────────────────────────────────
-    CREATE INDEX IF NOT EXISTS idx_products_category    ON products(category_id);
-    CREATE INDEX IF NOT EXISTS idx_variants_product     ON product_variants(product_id);
-    CREATE INDEX IF NOT EXISTS idx_variants_color       ON product_variants(color_id);
-    CREATE INDEX IF NOT EXISTS idx_invoices_customer    ON invoices(customer_id);
-    CREATE INDEX IF NOT EXISTS idx_invoices_date        ON invoices(created_at);
-    CREATE INDEX IF NOT EXISTS idx_items_invoice        ON invoice_items(invoice_id);
-    CREATE INDEX IF NOT EXISTS idx_items_product        ON invoice_items(product_id);
-    CREATE INDEX IF NOT EXISTS idx_customers_phone      ON customers(phone);
+    CREATE INDEX IF NOT EXISTS idx_products_category       ON products(category_id);
+    CREATE INDEX IF NOT EXISTS idx_product_colors_product   ON product_colors(product_id);
+    CREATE INDEX IF NOT EXISTS idx_product_variants_color   ON product_variants(color_id);
+    CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_customer        ON invoices(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_created_at      ON invoices(created_at);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice    ON invoice_items(invoice_id);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_product    ON invoice_items(product_id);
   `);
 
   // Seed default settings

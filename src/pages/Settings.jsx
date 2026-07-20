@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { SunIcon, MoonIcon, ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
-import api from '../utils/api';
+import api, { API_ORIGIN } from '../utils/api';
 import { useTheme } from '../App';
 import PageHeader from '../components/common/PageHeader';
 
@@ -22,7 +22,7 @@ export default function Settings() {
         receipt_footer: s.receipt_footer || '',
         low_stock_threshold: s.low_stock_threshold || 5,
       });
-      if (s.store_logo) setLogoPreview(`http://localhost:3001${s.store_logo}`);
+      if (s.store_logo) setLogoPreview(`${API_ORIGIN}${s.store_logo}`);
     });
   }, []);
 
@@ -50,7 +50,7 @@ export default function Settings() {
 
   const handleBackup = () => {
     const a = document.createElement('a');
-    a.href = 'http://localhost:3001/api/settings/backup';
+    a.href = `${API_ORIGIN}/api/settings/backup`;
     a.download = `ims-backup-${Date.now()}.db`;
     a.click();
     toast.success('Backup downloading...');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import api from '../../utils/api';
+import api, { API_ORIGIN } from '../../utils/api';
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Free Size'];
 
@@ -33,7 +33,7 @@ export default function ProductForm({ product, categories, onSave, onCancel }) {
         description: p.description || '', quantity: p.quantity,
         low_stock_threshold: p.low_stock_threshold,
       });
-      if (p.image_path) setImagePreview(`http://localhost:3001${p.image_path}`);
+      if (p.image_path) setImagePreview(`${API_ORIGIN}${p.image_path}`);
       if (p.colors?.length) {
         setColors(p.colors.map(c => ({
           name: c.color_name,

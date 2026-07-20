@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import {
   HomeIcon, CubeIcon, UsersIcon, ShoppingCartIcon,
@@ -12,7 +12,7 @@ import Customers  from './pages/Customers';
 import Billing    from './pages/Billing';
 import Reports    from './pages/Reports';
 import Settings   from './pages/Settings';
-import api        from './utils/api';
+import api, { API_ORIGIN } from './utils/api';
 
 // ─── Theme Context ────────────────────────────────────────────────────────────
 const ThemeCtx = createContext({ theme: 'light', setTheme: () => {} });
@@ -56,14 +56,14 @@ export default function App() {
   return (
     <ThemeCtx.Provider value={{ theme, setTheme: handleSetTheme }}>
       <SettingsCtx.Provider value={{ settings, setSettings }}>
-        <BrowserRouter>
+        <HashRouter>
           <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
             {/* Sidebar */}
             <aside className="w-56 flex-shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
               {/* Brand */}
               <div className="px-4 py-5 border-b border-gray-100 dark:border-gray-700">
                 {settings.store_logo ? (
-                  <img src={`http://localhost:3001${settings.store_logo}`} alt="logo" className="h-8 object-contain" />
+                  <img src={`${API_ORIGIN}${settings.store_logo}`} alt="logo" className="h-8 object-contain" />
                 ) : (
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
@@ -111,7 +111,7 @@ export default function App() {
             </main>
           </div>
           <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-        </BrowserRouter>
+        </HashRouter>
       </SettingsCtx.Provider>
     </ThemeCtx.Provider>
   );

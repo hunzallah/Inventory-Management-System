@@ -1,6 +1,7 @@
 {
   "name": "inventory-management-system",
   "version": "1.0.0",
+  "homepage": "./",
   "description": "Simple Desktop Inventory Management System",
   "main": "electron/main.js",
   "scripts": {
@@ -9,11 +10,25 @@
     "react": "react-scripts start",
     "electron": "electron .",
     "build": "react-scripts build && electron-builder",
-    "start": "concurrently \"npm run server\" \"electron .\""
+    "postbuild": "npm rebuild better-sqlite3",
+    "start": "react-scripts build && electron ."
   },
   "build": {
     "appId": "com.ims.app",
     "productName": "Inventory Management System",
+    "extends": null,
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
+    "files": [
+      "build/**/*",
+      "electron/**/*",
+      "server/**/*",
+      "database/db.js",
+      "package.json"
+    ],
+    "extraResources": [],
     "win": {
       "target": "nsis",
       "icon": "public/icon.ico"
@@ -21,22 +36,13 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    },
-    "files": [
-      "build/**/*",
-      "electron/**/*",
-      "server/**/*",
-      "database/**/*",
-      "node_modules/**/*"
-    ],
-    "extraResources": [
-      "database/"
-    ]
+    }
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@tailwindcss/forms": "^0.5.7",
-    "better-sqlite3": "^9.4.3",
+    "axios": "^1.7.9",
+    "better-sqlite3": "^12.11.1",
     "chart.js": "^4.5.1",
     "cors": "^2.8.5",
     "express": "^4.18.3",
@@ -55,7 +61,6 @@
     "concurrently": "^8.2.2",
     "electron": "^29.1.4",
     "electron-builder": "^24.13.3",
-    "electron-rebuild": "^3.2.9",
     "nodemon": "^3.1.0",
     "postcss": "^8.5.18",
     "tailwindcss": "^3.4.19",

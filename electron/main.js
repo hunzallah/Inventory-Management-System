@@ -1,40 +1,49 @@
-/**
- * Electron Main Process
- * Manages the application window and lifecycle
- */
-
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const http = require('http');
 
 let mainWindow;
-let serverProcess;
+let serverInstance;
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const SERVER_PORT = 3001;
 
-function startServer() {
-  if (isDev) return; // In dev, server is started separately via concurrently
-
-  const serverPath = path.join(process.resourcesPath, 'server', 'index.js');
-  serverProcess = spawn('node', [serverPath], {
-    env: {
-      ...process.env,
-      NODE_ENV: 'production',
-      DB_PATH: path.join(app.getPath('userData'), 'inventory.db'),
-      UPLOADS_PATH: path.join(app.getPath('userData'), 'uploads'),
-    },
-  });
-
-  serverProcess.stdout.on('data', (data) => {
-    console.log(`Server: ${data}`);
-  });
-
-  serverProcess.stderr.on('data', (data) => {
-    console.error(`Server Error: ${data}`);
+function waitForServer(url, maxRetries = 30, interval = 500) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const check = () => {
+      http.get(url, (res) => {
+        res.resume();
+        resolve();
+      }).on('error', () => {
+        if (++attempts >= maxRetries) {
+          reject(new Error('Server failed to start after ' + maxRetries + ' attempts'));
+        } else {
+          setTimeout(check, interval);
+        }
+      });
+    };
+    check();
   });
 }
 
-function createWindow() {
+function startServer() {
+  const userDataPath = app.getPath('userData');
+  process.env.NODE_ENV = 'production';
+  process.env.SERVER_PORT = String(SERVER_PORT);
+  process.env.DB_PATH = path.join(userDataPath, 'inventory.db');
+  process.env.UPLOADS_PATH = path.join(userDataPath, 'uploads');
+
+  const serverApp = require('../server/index.js');
+  serverInstance = serverApp.listen(SERVER_PORT, '127.0.0.1', () => {
+    console.log('Server started on port ' + SERVER_PORT);
+  });
+
+  serverInstance.on('error', (err) => {
+    console.error('Server listen error:', err);
+  });
+}
+
+function createWindow(startUrl) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -50,47 +59,57 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'public', 'icon.ico'),
   });
 
-  // Load the React app
-  const startUrl = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '..', 'build', 'index.html')}`;
-
   mainWindow.loadURL(startUrl);
 
-  // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    if (isDev) mainWindow.webContents.openDevTools();
+    if (!app.isPackaged && process.env.NODE_ENV === 'development') {
+      mainWindow.webContents.openDevTools();
+    }
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 }
 
-app.whenReady().then(() => {
-  startServer();
-  // Give server a moment to start in production
-  const delay = isDev ? 0 : 1500;
-  setTimeout(createWindow, delay);
+app.whenReady().then(async () => {
+  try {
+    if (app.isPackaged) {
+      startServer();
+      await waitForServer('http://127.0.0.1:' + SERVER_PORT + '/api/health');
+      const startUrl = 'file://' + path.join(__dirname, '..', 'build', 'index.html');
+      createWindow(startUrl);
+    } else {
+      const startUrl = 'http://localhost:3000';
+      createWindow(startUrl);
+    }
+  } catch (err) {
+    dialog.showErrorBox('Startup Error', err.message + '\n\n' + err.stack);
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {
+  if (serverInstance) {
+    serverInstance.close();
+  }
   if (process.platform !== 'darwin') {
-    if (serverProcess) serverProcess.kill();
     app.quit();
   }
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow(app.isPackaged
+      ? 'file://' + path.join(__dirname, '..', 'build', 'index.html')
+      : 'http://localhost:3000');
+  }
 });
 
-// IPC handlers for file system operations
 ipcMain.handle('get-app-path', () => app.getPath('userData'));
